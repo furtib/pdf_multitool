@@ -21,6 +21,89 @@ let pdfFiles = {}; // { docId: ArrayBuffer } stored in IndexedDB
 let pdfJsDocs = {}; // Cache of loaded PDF.js documents
 let isDrawing = false;
 let currentPath = [];
+let undoStack = [];
+let redoStack = [];
+
+// --- Undo / Redo System ---
+
+function recordHistory(key, before, after) {
+    undoStack.push({ key, before, after });
+    redoStack = []; // Clear redo on new action
+    updateUndoRedoButtons();
+}
+
+function updateUndoRedoButtons() {
+    const btnUndo = document.getElementById('btn-undo');
+    const btnRedo = document.getElementById('btn-redo');
+    if(!btnUndo || !btnRedo) return;
+
+    btnUndo.disabled = undoStack.length === 0;
+    btnUndo.style.opacity = undoStack.length === 0 ? '0.5' : '1';
+
+    btnRedo.disabled = redoStack.length === 0;
+    btnRedo.style.opacity = redoStack.length === 0 ? '0.5' : '1';
+}
+
+function undo() {
+    if (undoStack.length === 0) return;
+    const action = undoStack.pop();
+    redoStack.push(action);
+
+    state.drawings[action.key] = JSON.parse(JSON.stringify(action.before));
+    saveState();
+
+    const lastDash = action.key.lastIndexOf('-');
+    const docId = action.key.substring(0, lastDash);
+    const pageNum = parseInt(action.key.substring(lastDash + 1));
+
+    const canvas = document.getElementById(`draw-${docId}-${pageNum}`);
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        redrawCanvas(canvas, docId, pageNum);
+    }
+    updateUndoRedoButtons();
+}
+
+function redo() {
+    if (redoStack.length === 0) return;
+    const action = redoStack.pop();
+    undoStack.push(action);
+
+    state.drawings[action.key] = JSON.parse(JSON.stringify(action.after));
+    saveState();
+
+    const lastDash = action.key.lastIndexOf('-');
+    const docId = action.key.substring(0, lastDash);
+    const pageNum = parseInt(action.key.substring(lastDash + 1));
+
+    const canvas = document.getElementById(`draw-${docId}-${pageNum}`);
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        redrawCanvas(canvas, docId, pageNum);
+    }
+    updateUndoRedoButtons();
+}
+
+document.addEventListener('keydown', (e) => {
+    // Check for focus on inputs to avoid capturing normal typing (though we only have text inputs created dynamically)
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) {
+            e.preventDefault();
+            redo();
+        } else {
+            e.preventDefault();
+            undo();
+        }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+    }
+});
 
 // --- Initialization & Persistence ---
 
@@ -469,6 +552,8 @@ function setTool(toolName) {
 function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
     const key = `${docId}-${pageNum}`;
     const ctx = canvas.getContext('2d');
+    let beforeEraseState = null;
+
     ctx.lineWidth = 2;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
@@ -507,6 +592,7 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
         const save = () => {
             const text = input.value.trim();
             if (text) {
+                const before = JSON.parse(JSON.stringify(state.drawings[key] || []));
                 if (!state.drawings[key]) state.drawings[key] = [];
                 state.drawings[key].push({
                     type: 'text',
@@ -517,6 +603,10 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
                     color: state.color || '#000000'
                 });
                 saveState();
+
+                const after = JSON.parse(JSON.stringify(state.drawings[key]));
+                recordHistory(key, before, after);
+
                 redrawCanvas(canvas, docId, pageNum);
             }
             if (input.parentNode) input.parentNode.removeChild(input);
@@ -548,6 +638,7 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
              ctx.beginPath();
              ctx.moveTo(pos.x, pos.y);
         } else if (state.tool === 'erase') {
+             beforeEraseState = JSON.parse(JSON.stringify(state.drawings[key] || []));
              eraseAt(pos.x, pos.y, canvas.width, canvas.height, key);
         } else if (state.tool === 'text') {
              addTextAt(pos.x, pos.y);
@@ -578,6 +669,8 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
 
             // Only save if path has points
             if (currentPath.length > 0) {
+                const before = JSON.parse(JSON.stringify(state.drawings[key] || []));
+
                 if (!state.drawings[key]) state.drawings[key] = [];
 
                 const w = canvas.width;
@@ -586,8 +679,19 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
 
                 state.drawings[key].push({ points: normalizedPath, color: state.color || '#ef4444' });
                 saveState();
+
+                const after = JSON.parse(JSON.stringify(state.drawings[key]));
+                recordHistory(key, before, after);
             }
             currentPath = [];
+        } else if (state.tool === 'erase') {
+             if (beforeEraseState) {
+                 const after = JSON.parse(JSON.stringify(state.drawings[key] || []));
+                 if (JSON.stringify(beforeEraseState) !== JSON.stringify(after)) {
+                     recordHistory(key, beforeEraseState, after);
+                 }
+                 beforeEraseState = null;
+             }
         }
     };
 
