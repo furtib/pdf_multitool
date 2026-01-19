@@ -12,7 +12,9 @@ let state = {
     zoom: 1.0,
     tool: null, // 'draw', 'erase', null
     color: '#ef4444',
-    scrollTop: 0
+    scrollTop: 0,
+    sidebarWidth: 320,
+    isSidebarOpen: true
 };
 
 let pdfFiles = {}; // { docId: ArrayBuffer } stored in IndexedDB
@@ -80,6 +82,14 @@ async function init() {
         document.getElementById('zoom-level').innerText = Math.round(state.zoom * 100) + "%";
         setTool(state.tool); // Restore tool state
         if (state.color) document.getElementById('color-picker').value = state.color;
+
+        // Restore Sidebar
+        if (state.sidebarWidth) {
+            document.getElementById('sidebar').style.width = state.sidebarWidth + 'px';
+        }
+        if (state.isSidebarOpen === false) { // Default is true, so checks false
+            toggleSidebar(false);
+        }
 
         if (state.currentDocId && pdfJsDocs[state.currentDocId]) {
             await renderViewer(state.currentDocId);
@@ -744,6 +754,67 @@ function showLoader(text) {
 function hideLoader() {
     document.getElementById('loader').style.display = 'none';
 }
+
+// --- Layout & Sidebar ---
+
+function toggleSidebar(forceState) {
+    const sidebar = document.getElementById('sidebar');
+    const resizer = document.getElementById('resizer');
+    const toggleBtn = document.getElementById('sidebar-toggle-btn');
+
+    // If forceState is provided, use it, otherwise toggle
+    const newState = forceState !== undefined ? forceState : !state.isSidebarOpen;
+    state.isSidebarOpen = newState;
+
+    if (newState) {
+        sidebar.style.display = 'flex';
+        resizer.style.display = 'block';
+        toggleBtn.style.display = 'none';
+    } else {
+        sidebar.style.display = 'none';
+        resizer.style.display = 'none';
+        toggleBtn.style.display = 'block';
+    }
+
+    // Only save if it's a user interaction (not init call)
+    if (forceState === undefined) saveState();
+}
+
+// Resizer Logic
+(function setupResizer() {
+    const resizer = document.getElementById('resizer');
+    const sidebar = document.getElementById('sidebar');
+    let isResizing = false;
+
+    resizer.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        document.body.style.cursor = 'col-resize';
+        resizer.classList.add('resizing');
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+
+        // Calculate width from the right edge of viewport
+        const newWidth = window.innerWidth - e.clientX;
+
+        // Limits are handled by CSS min/max-width but we should clamp here too to avoid glitches
+        if (newWidth > 200 && newWidth < 800) {
+            sidebar.style.width = newWidth + 'px';
+            state.sidebarWidth = newWidth;
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isResizing) {
+            isResizing = false;
+            document.body.style.cursor = '';
+            resizer.classList.remove('resizing');
+            saveState();
+        }
+    });
+})();
+
 
 // Start
 init();

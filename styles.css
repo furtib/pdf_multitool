@@ -106,3 +106,26 @@ header { background: var(--panel-bg); border-bottom: 1px solid var(--border); di
 }
 .spinner { width: 40px; height: 40px; border: 4px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- Resizer --- */
+#resizer {
+    width: 6px;
+    background: #f1f5f9;
+    cursor: col-resize;
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    z-index: 35;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+#resizer:hover, #resizer.resizing {
+    background: var(--primary);
+}
+
+/* Updated Sidebar for Resizing */
+#sidebar {
+    width: 320px; /* Default */
+    min-width: 200px;
+    max-width: 600px;
+    /* other props remain from original CSS */
+}
