@@ -12,6 +12,7 @@ let state = {
     zoom: 1.0,
     tool: null, // 'draw', 'erase', null
     color: '#ef4444',
+    fontSize: 16,
     scrollTop: 0,
     sidebarWidth: 320,
     isSidebarOpen: true
@@ -167,6 +168,9 @@ async function init() {
         if (state.color) {
             document.getElementById('color-picker').value = state.color;
             document.getElementById('color-preview').style.backgroundColor = state.color;
+        }
+        if (state.fontSize) {
+            document.getElementById('font-size').value = state.fontSize;
         }
 
         // Restore Sidebar
@@ -531,6 +535,11 @@ function setColor(c) {
     saveState();
 }
 
+function setFontSize(size) {
+    state.fontSize = parseInt(size);
+    saveState();
+}
+
 function setTool(toolName) {
     if (state.tool === toolName) state.tool = null; // Toggle off
     else state.tool = toolName;
@@ -538,6 +547,11 @@ function setTool(toolName) {
     document.getElementById('draw-toggle').classList.toggle('active', state.tool === 'draw');
     document.getElementById('erase-toggle').classList.toggle('active', state.tool === 'erase');
     document.getElementById('text-toggle').classList.toggle('active', state.tool === 'text');
+
+    const fontSizeGroup = document.getElementById('font-size-group');
+    if (fontSizeGroup) {
+        fontSizeGroup.style.display = (state.tool === 'text') ? 'flex' : 'none';
+    }
 
     const wrappers = document.querySelectorAll('.page-wrapper');
     wrappers.forEach(w => {
@@ -573,6 +587,8 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
     const addTextAt = (x, y) => {
         const wrapper = canvas.parentElement;
         const input = document.createElement('textarea');
+        const scaledSize = (state.fontSize || 16) * state.zoom;
+
         input.style.position = 'absolute';
         input.style.left = x + 'px';
         input.style.top = y + 'px';
@@ -580,7 +596,7 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
         input.style.background = 'transparent';
         input.style.border = '1px solid #3b82f6';
         input.style.color = state.color || '#000000';
-        input.style.fontSize = '16px';
+        input.style.fontSize = scaledSize + 'px';
         input.style.fontFamily = 'Arial, sans-serif';
         input.style.minWidth = '150px';
         input.style.minHeight = '40px';
@@ -599,7 +615,7 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
                     x: x / canvas.width,
                     y: y / canvas.height,
                     text: text,
-                    size: 16 / canvas.height,
+                    size: scaledSize / canvas.height,
                     color: state.color || '#000000'
                 });
                 saveState();

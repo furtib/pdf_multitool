@@ -58,6 +58,13 @@
             <input type="color" id="color-picker" value="#ef4444" onchange="setColor(this.value)">
         </div>
 
+        <div id="font-size-group" style="display: none; align-items: center; gap: 5px;" title="Font Size">
+            <span style="font-size: 12px; font-weight: 500;">Font size:</span>
+            <input type="number" id="font-size" value="16" min="8" max="72" step="1"
+                   style="width: 45px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px;"
+                   onchange="setFontSize(this.value)">
+        </div>
+
         <div style="flex: 1;"></div>
         <span id="status-text" style="color: #64748b; font-size: 12px; font-style: italic;">Auto-saving...</span>
     </div>
