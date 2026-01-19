@@ -157,3 +157,32 @@ header { background: var(--panel-bg); border-bottom: 1px solid var(--border); di
     opacity: 0;
     pointer-events: none;
 }
+
+/* --- Modal --- */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(2px);
+}
+.modal-content {
+    background: white; width: 500px; max-width: 90%;
+    border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    overflow: hidden; animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.modal-header {
+    background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.modal-header h3 { margin: 0; color: var(--text-main); font-size: 18px; }
+.close-modal {
+    background: none; border: none; font-size: 18px; cursor: pointer; color: #64748b;
+    width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+.close-modal:hover { background: rgba(0,0,0,0.1); color: var(--text-main); }
+.modal-body { padding: 20px; font-size: 14px; line-height: 1.5; color: #334155; }
+
+@keyframes popIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}

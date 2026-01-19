@@ -104,7 +104,24 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
         redo();
     }
+    if (e.key === 'F1') {
+        e.preventDefault();
+        showHelp();
+    }
+    if (e.key === 'Escape') {
+        hideHelp();
+    }
 });
+
+// --- Help System ---
+
+function showHelp() {
+    document.getElementById('help-modal').style.display = 'flex';
+}
+
+function hideHelp() {
+    document.getElementById('help-modal').style.display = 'none';
+}
 
 // --- Initialization & Persistence ---
 

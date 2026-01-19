@@ -30,6 +30,7 @@
 
         <div class="tabs-track" id="tabs-track"></div>
 
+        <button class="btn" onclick="showHelp()" title="Help (F1)"><b>?</b></button>
         <button class="btn" onclick="resetApp()" style="color: #ef4444; border-color: #fecaca;">Clear All</button>
     </div>
 
@@ -103,6 +104,27 @@
 
 <div id="sidebar-toggle-btn" onclick="toggleSidebar()" style="display: none; position: fixed; right: 0; top: 50%; transform: translateY(-50%); background: white; border: 1px solid #e2e8f0; border-right: none; padding: 10px 5px; border-radius: 6px 0 0 6px; cursor: pointer; box-shadow: -2px 0 5px rgba(0,0,0,0.05); z-index: 40;">
     ◀
+</div>
+
+<div id="help-modal" class="modal-overlay" style="display: none;" onclick="if(event.target === this) hideHelp()">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>How to use PDF Multitool</h3>
+            <button class="close-modal" onclick="hideHelp()">✕</button>
+        </div>
+        <div class="modal-body">
+            <ul style="padding-left: 20px; line-height: 1.6;">
+                <li><b>Open PDFs:</b> Click "+ Open PDFs" to load documents.</li>
+                <li><b>Add Pages:</b> Click "+ Add Page" on any page to add it to your export queue.</li>
+                <li><b>Reorder Pages:</b> Drag pages in the right sidebar to change their order for the final PDF.</li>
+                <li><b>Reorder Files:</b> Drag the tabs at the top to reorder open files.</li>
+                <li><b>Draw/Annotate:</b> Use the toolbar tools to Draw, Erase or Add Text. You can change colors and font sizes.</li>
+                <li><b>Undo/Redo:</b> Use the buttons or shortcuts (Ctrl+Z / Ctrl+Y).</li>
+                <li><b>Export:</b> Click "Download Merged PDF" in the sidebar to save your work.</li>
+            </ul>
+            <p style="margin-top: 15px; font-size: 0.9em; color: #64748b;"><i>Press F1 to show this help anytime.</i></p>
+        </div>
+    </div>
 </div>
 
 <script src="script.js"></script>
