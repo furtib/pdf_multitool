@@ -1,0 +1,19 @@
+{
+  "name": "pdf-multitool",
+  "version": "1.0.0",
+  "description": "PDF Multitool – merge and annotate PDFs",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "localforage": "^1.10.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^3.11.174",
+    "serve": "^14.2.3",
+    "sortablejs": "^1.15.0"
+  }
+}
