@@ -1,21 +1,22 @@
 // --- Configuration & State ---
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-const STATE_KEY = 'pdf_stitcher_v2_state';
-const FILES_KEY = 'pdf_stitcher_v2_files';
+const STATE_KEY = "pdf_stitcher_v2_state";
+const FILES_KEY = "pdf_stitcher_v2_files";
 
 let state = {
-    docs: [],         // { id, name, pageCount }
-    selectedPages: [], // { id (unique), docId, pageNum, name }
-    drawings: {},     // { "docId-pageNum": [ {x,y, type: 'path', points: []} ] }
-    currentDocId: null,
-    zoom: 1.0,
-    tool: null, // 'draw', 'erase', null
-    color: '#ef4444',
-    fontSize: 16,
-    scrollTop: 0,
-    sidebarWidth: 320,
-    isSidebarOpen: true
+  docs: [], // { id, name, pageCount }
+  selectedPages: [], // { id (unique), docId, pageNum, name }
+  drawings: {}, // { "docId-pageNum": [ {x,y, type: 'path', points: []} ] }
+  currentDocId: null,
+  zoom: 1.0,
+  tool: null, // 'draw', 'erase', null
+  color: "#ef4444",
+  fontSize: 16,
+  scrollTop: 0,
+  sidebarWidth: 320,
+  isSidebarOpen: true,
 };
 
 let pdfFiles = {}; // { docId: ArrayBuffer } stored in IndexedDB
@@ -28,431 +29,456 @@ let redoStack = [];
 // --- Undo / Redo System ---
 
 function recordHistory(key, before, after) {
-    undoStack.push({ key, before, after });
-    redoStack = []; // Clear redo on new action
-    updateUndoRedoButtons();
+  undoStack.push({ key, before, after });
+  redoStack = []; // Clear redo on new action
+  updateUndoRedoButtons();
 }
 
 function updateUndoRedoButtons() {
-    const btnUndo = document.getElementById('btn-undo');
-    const btnRedo = document.getElementById('btn-redo');
-    if(!btnUndo || !btnRedo) return;
+  const btnUndo = document.getElementById("btn-undo");
+  const btnRedo = document.getElementById("btn-redo");
+  if (!btnUndo || !btnRedo) return;
 
-    btnUndo.disabled = undoStack.length === 0;
-    btnUndo.style.opacity = undoStack.length === 0 ? '0.5' : '1';
+  btnUndo.disabled = undoStack.length === 0;
+  btnUndo.style.opacity = undoStack.length === 0 ? "0.5" : "1";
 
-    btnRedo.disabled = redoStack.length === 0;
-    btnRedo.style.opacity = redoStack.length === 0 ? '0.5' : '1';
+  btnRedo.disabled = redoStack.length === 0;
+  btnRedo.style.opacity = redoStack.length === 0 ? "0.5" : "1";
 }
 
 function undo() {
-    if (undoStack.length === 0) return;
-    const action = undoStack.pop();
-    redoStack.push(action);
+  if (undoStack.length === 0) return;
+  const action = undoStack.pop();
+  redoStack.push(action);
 
-    state.drawings[action.key] = JSON.parse(JSON.stringify(action.before));
-    saveState();
+  state.drawings[action.key] = JSON.parse(JSON.stringify(action.before));
+  saveState();
 
-    const lastDash = action.key.lastIndexOf('-');
-    const docId = action.key.substring(0, lastDash);
-    const pageNum = parseInt(action.key.substring(lastDash + 1));
+  const lastDash = action.key.lastIndexOf("-");
+  const docId = action.key.substring(0, lastDash);
+  const pageNum = parseInt(action.key.substring(lastDash + 1));
 
-    const canvas = document.getElementById(`draw-${docId}-${pageNum}`);
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        redrawCanvas(canvas, docId, pageNum);
-    }
-    updateUndoRedoButtons();
+  const canvas = document.getElementById(`draw-${docId}-${pageNum}`);
+  if (canvas) {
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    redrawCanvas(canvas, docId, pageNum);
+  }
+  updateUndoRedoButtons();
 }
 
 function redo() {
-    if (redoStack.length === 0) return;
-    const action = redoStack.pop();
-    undoStack.push(action);
+  if (redoStack.length === 0) return;
+  const action = redoStack.pop();
+  undoStack.push(action);
 
-    state.drawings[action.key] = JSON.parse(JSON.stringify(action.after));
-    saveState();
+  state.drawings[action.key] = JSON.parse(JSON.stringify(action.after));
+  saveState();
 
-    const lastDash = action.key.lastIndexOf('-');
-    const docId = action.key.substring(0, lastDash);
-    const pageNum = parseInt(action.key.substring(lastDash + 1));
+  const lastDash = action.key.lastIndexOf("-");
+  const docId = action.key.substring(0, lastDash);
+  const pageNum = parseInt(action.key.substring(lastDash + 1));
 
-    const canvas = document.getElementById(`draw-${docId}-${pageNum}`);
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        redrawCanvas(canvas, docId, pageNum);
-    }
-    updateUndoRedoButtons();
+  const canvas = document.getElementById(`draw-${docId}-${pageNum}`);
+  if (canvas) {
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    redrawCanvas(canvas, docId, pageNum);
+  }
+  updateUndoRedoButtons();
 }
 
-document.addEventListener('keydown', (e) => {
-    // Check for focus on inputs to avoid capturing normal typing (though we only have text inputs created dynamically)
-    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+document.addEventListener("keydown", (e) => {
+  // Check for focus on inputs to avoid capturing normal typing (though we only have text inputs created dynamically)
+  if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
 
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        if (e.shiftKey) {
-            e.preventDefault();
-            redo();
-        } else {
-            e.preventDefault();
-            undo();
-        }
+  if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+    if (e.shiftKey) {
+      e.preventDefault();
+      redo();
+    } else {
+      e.preventDefault();
+      undo();
     }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
-        e.preventDefault();
-        redo();
-    }
-    if (e.key === 'F1') {
-        e.preventDefault();
-        showHelp();
-    }
-    if (e.key === 'Escape') {
-        hideHelp();
-    }
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+    e.preventDefault();
+    redo();
+  }
+  if (e.key === "F1") {
+    e.preventDefault();
+    showHelp();
+  }
+  if (e.key === "Escape") {
+    hideHelp();
+  }
 });
 
 // --- Help System ---
 
 function showHelp() {
-    document.getElementById('help-modal').style.display = 'flex';
+  document.getElementById("help-modal").style.display = "flex";
 }
 
 function hideHelp() {
-    document.getElementById('help-modal').style.display = 'none';
+  document.getElementById("help-modal").style.display = "none";
 }
 
 // --- Initialization & Persistence ---
 
 async function init() {
-    showLoader('Loading Workspace...');
-    try {
-        // Setup Sidebar Sortable
-        Sortable.create(document.getElementById('basket-list'), {
-            animation: 150,
-            ghostClass: 'blue-background-class',
-            onEnd: (evt) => {
-                const item = state.selectedPages.splice(evt.oldIndex, 1)[0];
-                state.selectedPages.splice(evt.newIndex, 0, item);
-                saveState();
-            }
-        });
+  showLoader("Loading Workspace...");
+  try {
+    // Setup Sidebar Sortable
+    Sortable.create(document.getElementById("basket-list"), {
+      animation: 150,
+      ghostClass: "blue-background-class",
+      onEnd: (evt) => {
+        const item = state.selectedPages.splice(evt.oldIndex, 1)[0];
+        state.selectedPages.splice(evt.newIndex, 0, item);
+        saveState();
+      },
+    });
 
-        // Setup Tabs Sortable
-        const tabsTrack = document.getElementById('tabs-track');
-        Sortable.create(tabsTrack, {
-            animation: 150,
-            ghostClass: 'sortable-ghost',
-            dragClass: 'sortable-drag',
-            onEnd: (evt) => {
-                if(evt.oldIndex === evt.newIndex) return;
-                const item = state.docs.splice(evt.oldIndex, 1)[0];
-                state.docs.splice(evt.newIndex, 0, item);
-                saveState();
-            }
-        });
+    // Setup Tabs Sortable
+    const tabsTrack = document.getElementById("tabs-track");
+    Sortable.create(tabsTrack, {
+      animation: 150,
+      ghostClass: "sortable-ghost",
+      dragClass: "sortable-drag",
+      onEnd: (evt) => {
+        if (evt.oldIndex === evt.newIndex) return;
+        const item = state.docs.splice(evt.oldIndex, 1)[0];
+        state.docs.splice(evt.newIndex, 0, item);
+        saveState();
+      },
+    });
 
-        // Horizontal scroll with wheel for tabs
-        tabsTrack.addEventListener('wheel', (evt) => {
-            if (evt.deltaY !== 0) {
-                evt.preventDefault();
-                tabsTrack.scrollLeft += evt.deltaY;
-            }
-        });
+    // Horizontal scroll with wheel for tabs
+    tabsTrack.addEventListener("wheel", (evt) => {
+      if (evt.deltaY !== 0) {
+        evt.preventDefault();
+        tabsTrack.scrollLeft += evt.deltaY;
+      }
+    });
 
-        // Load Data
-        const savedState = await localforage.getItem(STATE_KEY);
-        if (savedState) state = { ...state, ...savedState }; // Merge defaults
-        // Migration from old drawMode
-        if (state.drawMode) { state.tool = 'draw'; delete state.drawMode; }
-
-        const savedFiles = await localforage.getItem(FILES_KEY);
-        if (savedFiles) pdfFiles = savedFiles;
-
-        // Hydrate PDF.js docs
-        const promises = state.docs.map(async doc => {
-            if (pdfFiles[doc.id]) {
-                const data = pdfFiles[doc.id];
-                pdfJsDocs[doc.id] = await pdfjsLib.getDocument({ data: data.slice(0) }).promise;
-            }
-        });
-        await Promise.all(promises);
-
-        renderTabs();
-        renderBasket();
-
-        // Restore visual state
-        document.getElementById('zoom-level').innerText = Math.round(state.zoom * 100) + "%";
-        setTool(state.tool); // Restore tool state
-        if (state.color) {
-            document.getElementById('color-picker').value = state.color;
-            document.getElementById('color-preview').style.backgroundColor = state.color;
-        }
-        if (state.fontSize) {
-            document.getElementById('font-size').value = state.fontSize;
-        }
-
-        // Restore Sidebar
-        if (state.sidebarWidth) {
-            document.getElementById('sidebar').style.width = state.sidebarWidth + 'px';
-        }
-        if (state.isSidebarOpen === false) { // Default is true, so checks false
-            toggleSidebar(false);
-        }
-
-        if (state.currentDocId && pdfJsDocs[state.currentDocId]) {
-            await renderViewer(state.currentDocId);
-            // Restore scroll
-            document.getElementById('viewer-container').scrollTop = state.scrollTop || 0;
-        }
-
-    } catch (e) {
-        console.error("Init failed", e);
-        alert("Could not restore previous session. Clearing data.");
-        resetApp();
-    } finally {
-        hideLoader();
+    // Load Data
+    const savedState = await localforage.getItem(STATE_KEY);
+    if (savedState) state = { ...state, ...savedState }; // Merge defaults
+    // Migration from old drawMode
+    if (state.drawMode) {
+      state.tool = "draw";
+      delete state.drawMode;
     }
+
+    const savedFiles = await localforage.getItem(FILES_KEY);
+    if (savedFiles) pdfFiles = savedFiles;
+
+    // Hydrate PDF.js docs
+    const promises = state.docs.map(async (doc) => {
+      if (pdfFiles[doc.id]) {
+        const data = pdfFiles[doc.id];
+        pdfJsDocs[doc.id] = await pdfjsLib.getDocument({ data: data.slice(0) })
+          .promise;
+      }
+    });
+    await Promise.all(promises);
+
+    renderTabs();
+    renderBasket();
+
+    // Restore visual state
+    document.getElementById("zoom-level").innerText =
+      Math.round(state.zoom * 100) + "%";
+    setTool(state.tool); // Restore tool state
+    if (state.color) {
+      document.getElementById("color-picker").value = state.color;
+      document.getElementById("color-preview").style.backgroundColor =
+        state.color;
+    }
+    if (state.fontSize) {
+      document.getElementById("font-size").value = state.fontSize;
+    }
+
+    // Restore Sidebar
+    if (state.sidebarWidth) {
+      document.getElementById("sidebar").style.width =
+        state.sidebarWidth + "px";
+    }
+    if (state.isSidebarOpen === false) {
+      // Default is true, so checks false
+      toggleSidebar(false);
+    }
+
+    if (state.currentDocId && pdfJsDocs[state.currentDocId]) {
+      await renderViewer(state.currentDocId);
+      // Restore scroll
+      document.getElementById("viewer-container").scrollTop =
+        state.scrollTop || 0;
+    }
+  } catch (e) {
+    console.error("Init failed", e);
+    alert("Could not restore previous session. Clearing data.");
+    resetApp();
+  } finally {
+    hideLoader();
+  }
 }
 
 async function saveState() {
-    document.getElementById('status-text').innerText = 'Saving...';
-    await localforage.setItem(STATE_KEY, state);
-    await localforage.setItem(FILES_KEY, pdfFiles);
-    document.getElementById('status-text').innerText = 'Saved';
-    setTimeout(() => document.getElementById('status-text').innerText = '', 1000);
+  document.getElementById("status-text").innerText = "Saving...";
+  await localforage.setItem(STATE_KEY, state);
+  await localforage.setItem(FILES_KEY, pdfFiles);
+  document.getElementById("status-text").innerText = "Saved";
+  setTimeout(
+    () => (document.getElementById("status-text").innerText = ""),
+    1000,
+  );
 }
 
 async function resetApp() {
-    if(!confirm("Clear all PDFs and start over?")) return;
-    await localforage.clear();
-    location.reload();
+  if (!confirm("Clear all PDFs and start over?")) return;
+  await localforage.clear();
+  location.reload();
 }
 
 // --- File Handling ---
 
-document.getElementById('file-input').onchange = async (e) => {
-    showLoader('Processing PDFs...');
-    const files = Array.from(e.target.files);
+document.getElementById("file-input").onchange = async (e) => {
+  showLoader("Processing PDFs...");
+  const files = Array.from(e.target.files);
 
-    for (const file of files) {
-        const buffer = await file.arrayBuffer();
-        const id = 'doc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  for (const file of files) {
+    const buffer = await file.arrayBuffer();
+    const id =
+      "doc_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
 
-        try {
-            const pdfDoc = await pdfjsLib.getDocument({ data: buffer.slice(0) }).promise;
+    try {
+      const pdfDoc = await pdfjsLib.getDocument({ data: buffer.slice(0) })
+        .promise;
 
-            // Store
-            pdfFiles[id] = buffer;
-            pdfJsDocs[id] = pdfDoc;
+      // Store
+      pdfFiles[id] = buffer;
+      pdfJsDocs[id] = pdfDoc;
 
-            state.docs.push({
-                id: id,
-                name: file.name,
-                pageCount: pdfDoc.numPages
-            });
-        } catch(err) {
-            console.error("Error loading PDF", file.name, err);
-            alert(`Error loading ${file.name}`);
-        }
+      state.docs.push({
+        id: id,
+        name: file.name,
+        pageCount: pdfDoc.numPages,
+      });
+    } catch (err) {
+      console.error("Error loading PDF", file.name, err);
+      alert(`Error loading ${file.name}`);
     }
+  }
 
-    if (!state.currentDocId && state.docs.length > 0) {
-        state.currentDocId = state.docs[state.docs.length - 1].id;
-    } else if(state.docs.length > 0) {
-        // Switch to the newly added one
-            state.currentDocId = state.docs[state.docs.length - 1].id;
-    }
+  if (!state.currentDocId && state.docs.length > 0) {
+    state.currentDocId = state.docs[state.docs.length - 1].id;
+  } else if (state.docs.length > 0) {
+    // Switch to the newly added one
+    state.currentDocId = state.docs[state.docs.length - 1].id;
+  }
 
-    saveState();
-    renderTabs();
-    renderViewer(state.currentDocId);
-    hideLoader();
+  saveState();
+  renderTabs();
+  renderViewer(state.currentDocId);
+  hideLoader();
 };
 
 // --- Tabs & Navigation ---
 
 function renderTabs() {
-    const track = document.getElementById('tabs-track');
-    track.innerHTML = '';
-    state.docs.forEach(doc => {
-        const el = document.createElement('div');
-        el.className = `doc-tab ${doc.id === state.currentDocId ? 'active' : ''}`;
-        el.innerHTML = `
+  const track = document.getElementById("tabs-track");
+  track.innerHTML = "";
+  state.docs.forEach((doc) => {
+    const el = document.createElement("div");
+    el.className = `doc-tab ${doc.id === state.currentDocId ? "active" : ""}`;
+    el.innerHTML = `
             <span>${doc.name}</span>
             <div class="close-tab" onclick="event.stopPropagation(); closeDoc('${doc.id}')">✕</div>
         `;
-        el.onclick = () => {
-            state.currentDocId = doc.id;
-            state.scrollTop = 0; // Reset scroll on tab switch
-            saveState();
-            renderTabs();
-            renderViewer(doc.id);
-        };
-        track.appendChild(el);
-    });
+    el.onclick = () => {
+      state.currentDocId = doc.id;
+      state.scrollTop = 0; // Reset scroll on tab switch
+      saveState();
+      renderTabs();
+      renderViewer(doc.id);
+    };
+    track.appendChild(el);
+  });
 }
 
 function closeDoc(id) {
-    state.docs = state.docs.filter(d => d.id !== id);
-    delete pdfFiles[id];
-    delete pdfJsDocs[id];
-    // Clean up selected pages from this doc
-    state.selectedPages = state.selectedPages.filter(p => p.docId !== id);
+  state.docs = state.docs.filter((d) => d.id !== id);
+  delete pdfFiles[id];
+  delete pdfJsDocs[id];
+  // Clean up selected pages from this doc
+  state.selectedPages = state.selectedPages.filter((p) => p.docId !== id);
 
-    if (state.currentDocId === id) {
-        state.currentDocId = state.docs.length ? state.docs[0].id : null;
-    }
-    saveState();
-    renderTabs();
-    renderBasket();
-    renderViewer(state.currentDocId);
+  if (state.currentDocId === id) {
+    state.currentDocId = state.docs.length ? state.docs[0].id : null;
+  }
+  saveState();
+  renderTabs();
+  renderBasket();
+  renderViewer(state.currentDocId);
 }
 
 // --- Viewer & Rendering ---
 
 function changeZoom(delta) {
-    state.zoom = Math.max(0.5, Math.min(3.0, state.zoom + delta));
-    document.getElementById('zoom-level').innerText = Math.round(state.zoom * 100) + "%";
-    saveState();
-    renderViewer(state.currentDocId);
+  state.zoom = Math.max(0.5, Math.min(3.0, state.zoom + delta));
+  document.getElementById("zoom-level").innerText =
+    Math.round(state.zoom * 100) + "%";
+  saveState();
+  renderViewer(state.currentDocId);
 }
 
 async function renderViewer(docId) {
-    const container = document.getElementById('viewer-container');
-    container.innerHTML = '';
+  const container = document.getElementById("viewer-container");
+  container.innerHTML = "";
 
-    if (!docId || !pdfJsDocs[docId]) {
-        container.innerHTML = document.getElementById('empty-state').outerHTML;
-        document.getElementById('empty-state').style.display = 'block';
-        return;
-    }
+  if (!docId || !pdfJsDocs[docId]) {
+    container.innerHTML = document.getElementById("empty-state").outerHTML;
+    document.getElementById("empty-state").style.display = "block";
+    return;
+  }
 
-    const pdfDoc = pdfJsDocs[docId];
-    const docMeta = state.docs.find(d => d.id === docId);
+  const pdfDoc = pdfJsDocs[docId];
+  const docMeta = state.docs.find((d) => d.id === docId);
 
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-        // Create DOM structure
-        const wrapper = document.createElement('div');
-        wrapper.className = `page-wrapper ${state.tool === 'draw' ? 'draw-mode' : (state.tool === 'erase' ? 'erase-mode' : '')}`;
-        wrapper.dataset.pageNum = i;
+  for (let i = 1; i <= pdfDoc.numPages; i++) {
+    // Create DOM structure
+    const wrapper = document.createElement("div");
+    wrapper.className = `page-wrapper ${state.tool === "draw" ? "draw-mode" : state.tool === "erase" ? "erase-mode" : ""}`;
+    wrapper.dataset.pageNum = i;
 
-        // Fetch viewport
-        const page = await pdfDoc.getPage(i);
-        const viewport = page.getViewport({ scale: state.zoom });
+    // Fetch viewport
+    const page = await pdfDoc.getPage(i);
+    const viewport = page.getViewport({ scale: state.zoom });
 
-        wrapper.style.width = `${viewport.width}px`;
-        wrapper.style.height = `${viewport.height}px`;
+    wrapper.style.width = `${viewport.width}px`;
+    wrapper.style.height = `${viewport.height}px`;
 
-        // 1. PDF Canvas
-        const canvas = document.createElement('canvas');
-        canvas.className = 'pdf-canvas';
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext('2d');
+    // 1. PDF Canvas
+    const canvas = document.createElement("canvas");
+    canvas.className = "pdf-canvas";
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d");
 
-        // 2. Text Layer
-        const textLayerDiv = document.createElement('div');
-        textLayerDiv.className = 'textLayer';
-        textLayerDiv.style.width = `${viewport.width}px`;
-        textLayerDiv.style.height = `${viewport.height}px`;
-        textLayerDiv.style.position = 'absolute';
-        textLayerDiv.style.top = '0';
-        textLayerDiv.style.left = '0';
+    // 2. Text Layer
+    const textLayerDiv = document.createElement("div");
+    textLayerDiv.className = "textLayer";
+    textLayerDiv.style.width = `${viewport.width}px`;
+    textLayerDiv.style.height = `${viewport.height}px`;
+    textLayerDiv.style.position = "absolute";
+    textLayerDiv.style.top = "0";
+    textLayerDiv.style.left = "0";
 
-        // 3. Drawing Canvas
-        const drawCanvas = document.createElement('canvas');
-        drawCanvas.className = 'draw-canvas';
-        drawCanvas.id = `draw-${docId}-${i}`;
-        drawCanvas.width = viewport.width;
-        drawCanvas.height = viewport.height;
-        setupDrawingEvents(drawCanvas, docId, i, viewport.width / page.getViewport({scale:1}).width);
+    // 3. Drawing Canvas
+    const drawCanvas = document.createElement("canvas");
+    drawCanvas.className = "draw-canvas";
+    drawCanvas.id = `draw-${docId}-${i}`;
+    drawCanvas.width = viewport.width;
+    drawCanvas.height = viewport.height;
+    setupDrawingEvents(
+      drawCanvas,
+      docId,
+      i,
+      viewport.width / page.getViewport({ scale: 1 }).width,
+    );
 
-        // Controls
-        const meta = document.createElement('div');
-        meta.className = 'page-meta';
-        meta.innerText = i;
+    // Controls
+    const meta = document.createElement("div");
+    meta.className = "page-meta";
+    meta.innerText = i;
 
-        const controls = document.createElement('div');
-        controls.className = 'page-controls';
+    const controls = document.createElement("div");
+    controls.className = "page-controls";
 
-        const isAdded = state.selectedPages.some(p => p.docId === docId && p.pageNum === i);
-        const btn = document.createElement('button');
-        btn.className = `add-btn ${isAdded ? 'added' : ''}`;
-        btn.innerHTML = isAdded ? '✓ Added' : '+ Add Page';
-        btn.onclick = () => togglePageSelection(docId, i, docMeta.name, btn);
+    const isAdded = state.selectedPages.some(
+      (p) => p.docId === docId && p.pageNum === i,
+    );
+    const btn = document.createElement("button");
+    btn.className = `add-btn ${isAdded ? "added" : ""}`;
+    btn.innerHTML = isAdded ? "✓ Added" : "+ Add Page";
+    btn.onclick = () => togglePageSelection(docId, i, docMeta.name, btn);
 
-        controls.appendChild(btn);
-        wrapper.appendChild(meta);
-        wrapper.appendChild(canvas);
-        wrapper.appendChild(textLayerDiv);
-        wrapper.appendChild(drawCanvas);
-        wrapper.appendChild(controls);
-        container.appendChild(wrapper);
+    controls.appendChild(btn);
+    wrapper.appendChild(meta);
+    wrapper.appendChild(canvas);
+    wrapper.appendChild(textLayerDiv);
+    wrapper.appendChild(drawCanvas);
+    wrapper.appendChild(controls);
+    container.appendChild(wrapper);
 
-        // Async Render
-        page.render({ canvasContext: ctx, viewport }).promise.then(() => {
-            // Render Text
-            page.getTextContent().then(textContent => {
-                pdfjsLib.renderTextLayer({
-                    textContentSource: textContent,
-                    container: textLayerDiv,
-                    viewport: viewport,
-                    textDivs: []
-                });
-            });
-            // Render existing drawings
-            redrawCanvas(drawCanvas, docId, i);
+    // Async Render
+    page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+      // Render Text
+      page.getTextContent().then((textContent) => {
+        pdfjsLib.renderTextLayer({
+          textContentSource: textContent,
+          container: textLayerDiv,
+          viewport: viewport,
+          textDivs: [],
         });
-    }
+      });
+      // Render existing drawings
+      redrawCanvas(drawCanvas, docId, i);
+    });
+  }
 }
 
 function handleScroll() {
-    if(state.currentDocId) {
-        state.scrollTop = document.getElementById('viewer-container').scrollTop;
-        // Debounce save? Skipping for now to avoid lag, saved on other actions
-    }
+  if (state.currentDocId) {
+    state.scrollTop = document.getElementById("viewer-container").scrollTop;
+    // Debounce save? Skipping for now to avoid lag, saved on other actions
+  }
 }
 
 // --- Selection Logic ---
 
 function togglePageSelection(docId, pageNum, docName, btnElement) {
-    const existingIdx = state.selectedPages.findIndex(p => p.docId === docId && p.pageNum === pageNum);
+  const existingIdx = state.selectedPages.findIndex(
+    (p) => p.docId === docId && p.pageNum === pageNum,
+  );
 
-    if (existingIdx > -1) {
-        state.selectedPages.splice(existingIdx, 1);
-        btnElement.classList.remove('added');
-        btnElement.innerText = '+ Add Page';
-    } else {
-        state.selectedPages.push({
-            id: Date.now() + Math.random(),
-            docId,
-            pageNum,
-            name: docName
-        });
-        btnElement.classList.add('added');
-        btnElement.innerText = '✓ Added';
-    }
-    saveState();
-    renderBasket();
+  if (existingIdx > -1) {
+    state.selectedPages.splice(existingIdx, 1);
+    btnElement.classList.remove("added");
+    btnElement.innerText = "+ Add Page";
+  } else {
+    state.selectedPages.push({
+      id: Date.now() + Math.random(),
+      docId,
+      pageNum,
+      name: docName,
+    });
+    btnElement.classList.add("added");
+    btnElement.innerText = "✓ Added";
+  }
+  saveState();
+  renderBasket();
 }
 
 function renderBasket() {
-    const list = document.getElementById('basket-list');
-    list.innerHTML = '';
-    document.getElementById('queue-count').innerText = `${state.selectedPages.length} Pages`;
-    document.getElementById('download-btn').disabled = state.selectedPages.length === 0;
+  const list = document.getElementById("basket-list");
+  list.innerHTML = "";
+  document.getElementById("queue-count").innerText =
+    `${state.selectedPages.length} Pages`;
+  document.getElementById("download-btn").disabled =
+    state.selectedPages.length === 0;
 
-    state.selectedPages.forEach((item, index) => {
-        const el = document.createElement('div');
-        el.className = 'basket-item';
+  state.selectedPages.forEach((item, index) => {
+    const el = document.createElement("div");
+    el.className = "basket-item";
 
-        // Hover events
-        el.onmouseenter = (e) => showHoverPreview(e, item);
-        el.onmouseleave = hideHoverPreview;
+    // Hover events
+    el.onmouseenter = (e) => showHoverPreview(e, item);
+    el.onmouseleave = hideHoverPreview;
 
-        el.innerHTML = `
+    el.innerHTML = `
             <div class="basket-thumb">
                 </div>
             <div class="basket-info">
@@ -461,547 +487,578 @@ function renderBasket() {
             </div>
             <button style="border:none; background:none; cursor:pointer; color:#94a3b8;" onclick="removePage(${index})">✕</button>
         `;
-        list.appendChild(el);
-    });
+    list.appendChild(el);
+  });
 }
 
 function removePage(index) {
-    const item = state.selectedPages[index];
-    state.selectedPages.splice(index, 1);
-    saveState();
-    renderBasket();
-    // If current viewer shows this page, update button
-    if (state.currentDocId === item.docId) {
-        renderViewer(state.currentDocId);
-    }
+  const item = state.selectedPages[index];
+  state.selectedPages.splice(index, 1);
+  saveState();
+  renderBasket();
+  // If current viewer shows this page, update button
+  if (state.currentDocId === item.docId) {
+    renderViewer(state.currentDocId);
+  }
 }
 
 // --- Hover Preview ---
 async function showHoverPreview(e, item) {
-    const preview = document.getElementById('hover-preview');
-    preview.style.display = 'block';
+  const preview = document.getElementById("hover-preview");
+  preview.style.display = "block";
 
-    // Initial basic positioning (loading state)
-    positionPreview(e, preview);
-    preview.innerHTML = '<div style="padding:10px; font-size:12px;">Loading...</div>';
+  // Initial basic positioning (loading state)
+  positionPreview(e, preview);
+  preview.innerHTML =
+    '<div style="padding:10px; font-size:12px;">Loading...</div>';
 
-    if(pdfJsDocs[item.docId]) {
-        const page = await pdfJsDocs[item.docId].getPage(item.pageNum);
-        // Use a reasonable scale that fits most screens
-        const scale = 0.6;
-        const viewport = page.getViewport({ scale: scale });
+  if (pdfJsDocs[item.docId]) {
+    const page = await pdfJsDocs[item.docId].getPage(item.pageNum);
+    // Use a reasonable scale that fits most screens
+    const scale = 0.6;
+    const viewport = page.getViewport({ scale: scale });
 
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport })
+      .promise;
 
-        // Draw annotations on top
-        redrawCanvas(canvas, item.docId, item.pageNum);
+    // Draw annotations on top
+    redrawCanvas(canvas, item.docId, item.pageNum);
 
-        preview.innerHTML = '';
-        preview.appendChild(canvas);
+    preview.innerHTML = "";
+    preview.appendChild(canvas);
 
-        // Re-position now that we have exact dimensions, to ensure it fits
-        positionPreview(e, preview, viewport.width, viewport.height);
-    }
+    // Re-position now that we have exact dimensions, to ensure it fits
+    positionPreview(e, preview, viewport.width, viewport.height);
+  }
 }
 
 function positionPreview(e, preview, width = 200, height = 300) {
-    const x = e.clientX;
-    const y = e.clientY;
-    const winW = window.innerWidth;
-    const winH = window.innerHeight;
-    const gap = 20;
+  const x = e.clientX;
+  const y = e.clientY;
+  const winW = window.innerWidth;
+  const winH = window.innerHeight;
+  const gap = 20;
 
-    // Horizontal Decision
-    // If we are on the right half of the screen, show to the left of cursor
-    if (x > winW / 2) {
-        preview.style.left = 'auto';
-        preview.style.right = (winW - x + gap) + 'px';
+  // Horizontal Decision
+  // If we are on the right half of the screen, show to the left of cursor
+  if (x > winW / 2) {
+    preview.style.left = "auto";
+    preview.style.right = winW - x + gap + "px";
 
-        // Ensure it doesn't go off the left edge (unlikely but possible)
-        // CSS max-width/height can help too
-    } else {
-        preview.style.right = 'auto';
-        preview.style.left = (x + gap) + 'px';
-    }
+    // Ensure it doesn't go off the left edge (unlikely but possible)
+    // CSS max-width/height can help too
+  } else {
+    preview.style.right = "auto";
+    preview.style.left = x + gap + "px";
+  }
 
-    // Vertical Decision
-    // Default to aligning top of preview near cursor
-    let top = y - 50;
+  // Vertical Decision
+  // Default to aligning top of preview near cursor
+  let top = y - 50;
 
-    // Check bottom overflow
-    if (top + height > winH) {
-        // Align bottom to window bottom with padding
-        top = winH - height - gap;
-        // If that pushes it off top, pin to top
-        if (top < gap) top = gap;
-    }
+  // Check bottom overflow
+  if (top + height > winH) {
+    // Align bottom to window bottom with padding
+    top = winH - height - gap;
+    // If that pushes it off top, pin to top
+    if (top < gap) top = gap;
+  }
 
-    preview.style.top = top + 'px';
-    preview.style.bottom = 'auto';
+  preview.style.top = top + "px";
+  preview.style.bottom = "auto";
 }
 
 function hideHoverPreview() {
-    document.getElementById('hover-preview').style.display = 'none';
+  document.getElementById("hover-preview").style.display = "none";
 }
 
 // --- Drawing & Annotation ---
 
 function setColor(c) {
-    state.color = c;
-    document.getElementById('color-preview').style.backgroundColor = c;
-    saveState();
+  state.color = c;
+  document.getElementById("color-preview").style.backgroundColor = c;
+  saveState();
 }
 
 function setFontSize(size) {
-    state.fontSize = parseInt(size);
-    saveState();
+  state.fontSize = parseInt(size);
+  saveState();
 }
 
 function setTool(toolName) {
-    if (state.tool === toolName) state.tool = null; // Toggle off
-    else state.tool = toolName;
+  if (state.tool === toolName)
+    state.tool = null; // Toggle off
+  else state.tool = toolName;
 
-    document.getElementById('draw-toggle').classList.toggle('active', state.tool === 'draw');
-    document.getElementById('erase-toggle').classList.toggle('active', state.tool === 'erase');
-    document.getElementById('text-toggle').classList.toggle('active', state.tool === 'text');
+  document
+    .getElementById("draw-toggle")
+    .classList.toggle("active", state.tool === "draw");
+  document
+    .getElementById("erase-toggle")
+    .classList.toggle("active", state.tool === "erase");
+  document
+    .getElementById("text-toggle")
+    .classList.toggle("active", state.tool === "text");
 
-    const fontSizeGroup = document.getElementById('font-size-group');
-    if (fontSizeGroup) {
-        fontSizeGroup.style.display = (state.tool === 'text') ? 'flex' : 'none';
-    }
+  const fontSizeGroup = document.getElementById("font-size-group");
+  if (fontSizeGroup) {
+    fontSizeGroup.style.display = state.tool === "text" ? "flex" : "none";
+  }
 
-    const wrappers = document.querySelectorAll('.page-wrapper');
-    wrappers.forEach(w => {
-        w.classList.remove('draw-mode', 'erase-mode', 'text-mode');
-        if (state.tool === 'draw') w.classList.add('draw-mode');
-        if (state.tool === 'erase') w.classList.add('erase-mode');
-        if (state.tool === 'text') w.classList.add('text-mode');
-    });
-    saveState();
+  const wrappers = document.querySelectorAll(".page-wrapper");
+  wrappers.forEach((w) => {
+    w.classList.remove("draw-mode", "erase-mode", "text-mode");
+    if (state.tool === "draw") w.classList.add("draw-mode");
+    if (state.tool === "erase") w.classList.add("erase-mode");
+    if (state.tool === "text") w.classList.add("text-mode");
+  });
+  saveState();
 }
 
 function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
-    const key = `${docId}-${pageNum}`;
-    const ctx = canvas.getContext('2d');
-    let beforeEraseState = null;
+  const key = `${docId}-${pageNum}`;
+  const ctx = canvas.getContext("2d");
+  let beforeEraseState = null;
 
-    ctx.lineWidth = 2;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    // Color set dynamically on draw
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  // Color set dynamically on draw
 
-    const getPos = (e) => {
-        const rect = canvas.getBoundingClientRect();
-        // Handle touch or mouse
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return {
-            x: (clientX - rect.left),
-            y: (clientY - rect.top)
-        };
+  const getPos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    // Handle touch or mouse
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
     };
+  };
 
-    const addTextAt = (x, y) => {
-        const wrapper = canvas.parentElement;
-        const input = document.createElement('textarea');
-        const scaledSize = (state.fontSize || 16) * state.zoom;
+  const addTextAt = (x, y) => {
+    const wrapper = canvas.parentElement;
+    const input = document.createElement("textarea");
+    const scaledSize = (state.fontSize || 16) * state.zoom;
 
-        input.style.position = 'absolute';
-        input.style.left = x + 'px';
-        input.style.top = y + 'px';
-        input.style.zIndex = 100;
-        input.style.background = 'transparent';
-        input.style.border = '1px solid #3b82f6';
-        input.style.color = state.color || '#000000';
-        input.style.fontSize = scaledSize + 'px';
-        input.style.fontFamily = 'Arial, sans-serif';
-        input.style.minWidth = '150px';
-        input.style.minHeight = '40px';
-        input.style.padding = '4px';
+    input.style.position = "absolute";
+    input.style.left = x + "px";
+    input.style.top = y + "px";
+    input.style.zIndex = 100;
+    input.style.background = "transparent";
+    input.style.border = "1px solid #3b82f6";
+    input.style.color = state.color || "#000000";
+    input.style.fontSize = scaledSize + "px";
+    input.style.fontFamily = "Arial, sans-serif";
+    input.style.minWidth = "150px";
+    input.style.minHeight = "40px";
+    input.style.padding = "4px";
 
-        wrapper.appendChild(input);
-        input.focus();
+    wrapper.appendChild(input);
+    input.focus();
 
-        const save = () => {
-            const text = input.value.trim();
-            if (text) {
-                const before = JSON.parse(JSON.stringify(state.drawings[key] || []));
-                if (!state.drawings[key]) state.drawings[key] = [];
-                state.drawings[key].push({
-                    type: 'text',
-                    x: x / canvas.width,
-                    y: y / canvas.height,
-                    text: text,
-                    size: scaledSize / canvas.height,
-                    color: state.color || '#000000'
-                });
-                saveState();
-
-                const after = JSON.parse(JSON.stringify(state.drawings[key]));
-                recordHistory(key, before, after);
-
-                redrawCanvas(canvas, docId, pageNum);
-            }
-            if (input.parentNode) input.parentNode.removeChild(input);
-        };
-
-        input.addEventListener('blur', save);
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                input.blur();
-            }
-            if (e.key === 'Escape') {
-                if (input.parentNode) input.parentNode.removeChild(input);
-            }
+    const save = () => {
+      const text = input.value.trim();
+      if (text) {
+        const before = JSON.parse(JSON.stringify(state.drawings[key] || []));
+        if (!state.drawings[key]) state.drawings[key] = [];
+        state.drawings[key].push({
+          type: "text",
+          x: x / canvas.width,
+          y: y / canvas.height,
+          text: text,
+          size: scaledSize / canvas.height,
+          color: state.color || "#000000",
         });
+        saveState();
+
+        const after = JSON.parse(JSON.stringify(state.drawings[key]));
+        recordHistory(key, before, after);
+
+        redrawCanvas(canvas, docId, pageNum);
+      }
+      if (input.parentNode) input.parentNode.removeChild(input);
     };
 
-    const start = (e) => {
-        if (!state.tool) return;
-        if (e.type === 'mousedown' && e.button !== 0) return; // Only left click
+    input.addEventListener("blur", save);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
+        input.blur();
+      }
+      if (e.key === "Escape") {
+        if (input.parentNode) input.parentNode.removeChild(input);
+      }
+    });
+  };
 
-        isDrawing = true;
-        const pos = getPos(e);
+  const start = (e) => {
+    if (!state.tool) return;
+    if (e.type === "mousedown" && e.button !== 0) return; // Only left click
+    e.preventDefault();
 
-        if (state.tool === 'draw') {
-             currentPath = [{ x: pos.x, y: pos.y }];
-             ctx.strokeStyle = state.color || '#ef4444';
-             ctx.beginPath();
-             ctx.moveTo(pos.x, pos.y);
-        } else if (state.tool === 'erase') {
-             beforeEraseState = JSON.parse(JSON.stringify(state.drawings[key] || []));
-             eraseAt(pos.x, pos.y, canvas.width, canvas.height, key);
-        } else if (state.tool === 'text') {
-             addTextAt(pos.x, pos.y);
-             isDrawing = false;
-        }
-    };
+    isDrawing = true;
+    const pos = getPos(e);
 
-    const move = (e) => {
-        if (!isDrawing || !state.tool) return;
-        e.preventDefault();
-        const pos = getPos(e);
-
-        if (state.tool === 'draw') {
-            currentPath.push({ x: pos.x, y: pos.y });
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-        } else if (state.tool === 'erase') {
-             eraseAt(pos.x, pos.y, canvas.width, canvas.height, key);
-        }
-    };
-
-    const end = (e) => {
-        if (!isDrawing) return;
-        isDrawing = false;
-
-        if (state.tool === 'draw') {
-            ctx.closePath();
-
-            // Only save if path has points
-            if (currentPath.length > 0) {
-                const before = JSON.parse(JSON.stringify(state.drawings[key] || []));
-
-                if (!state.drawings[key]) state.drawings[key] = [];
-
-                const w = canvas.width;
-                const h = canvas.height;
-                const normalizedPath = currentPath.map(p => ({ x: p.x/w, y: p.y/h }));
-
-                state.drawings[key].push({ points: normalizedPath, color: state.color || '#ef4444' });
-                saveState();
-
-                const after = JSON.parse(JSON.stringify(state.drawings[key]));
-                recordHistory(key, before, after);
-            }
-            currentPath = [];
-        } else if (state.tool === 'erase') {
-             if (beforeEraseState) {
-                 const after = JSON.parse(JSON.stringify(state.drawings[key] || []));
-                 if (JSON.stringify(beforeEraseState) !== JSON.stringify(after)) {
-                     recordHistory(key, beforeEraseState, after);
-                 }
-                 beforeEraseState = null;
-             }
-        }
-    };
-
-    const eraseAt = (x, y, w, h, key) => {
-         const items = state.drawings[key];
-         if(!items) return;
-
-         const threshold = 10; // pixels
-
-         const initialLen = items.length;
-         state.drawings[key] = items.filter(item => {
-             if (item.type === 'text') {
-                 const tx = item.x * w;
-                 const ty = item.y * h;
-                 const fontSize = item.size * h;
-                 ctx.font = `${fontSize}px Arial`;
-                 const textWidth = ctx.measureText(item.text.split('\n')[0]).width; // simplified width check
-
-                 // Expand hit box slightly
-                 return !(x >= tx - 10 && x <= tx + textWidth + 10 &&
-                          y >= ty - 10 && y <= ty + fontSize * (item.text.split('\n').length) + 10);
-             } else {
-                 return !item.points.some((p, idx, arr) => {
-                     if (idx === 0) return false;
-                     const p1 = {x: arr[idx-1].x * w, y: arr[idx-1].y * h};
-                     const p2 = {x: p.x * w, y: p.y * h};
-                     return distToSegment({x,y}, p1, p2) < threshold;
-                 });
-             }
-         });
-
-         if (state.drawings[key].length !== initialLen) {
-             ctx.clearRect(0, 0, w, h);
-             redrawCanvas(canvas, docId, pageNum); // Reuse redraw
-             saveState();
-         }
-    };
-
-    function distToSegment(p, v, w) {
-        function sqr(x) { return x * x }
-        function dist2(v, w) { return sqr(v.x - w.x) + sqr(v.y - w.y) }
-        var l2 = dist2(v, w);
-        if (l2 == 0) return Math.sqrt(dist2(p, v));
-        var t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-        t = Math.max(0, Math.min(1, t));
-        return Math.sqrt(dist2(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) }));
+    if (state.tool === "draw") {
+      currentPath = [{ x: pos.x, y: pos.y }];
+      ctx.strokeStyle = state.color || "#ef4444";
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    } else if (state.tool === "erase") {
+      beforeEraseState = JSON.parse(JSON.stringify(state.drawings[key] || []));
+      eraseAt(pos.x, pos.y, canvas.width, canvas.height, key);
+    } else if (state.tool === "text") {
+      addTextAt(pos.x, pos.y);
+      isDrawing = false;
     }
+  };
 
-    canvas.addEventListener('mousedown', start);
-    canvas.addEventListener('mousemove', move);
-    canvas.addEventListener('mouseup', end);
-    canvas.addEventListener('mouseout', end);
-    // Touch support
-    canvas.addEventListener('touchstart', start);
-    canvas.addEventListener('touchmove', move);
-    canvas.addEventListener('touchend', end);
-}
+  const move = (e) => {
+    if (!isDrawing || !state.tool) return;
+    e.preventDefault();
+    const pos = getPos(e);
 
-function redrawCanvas(canvas, docId, pageNum) {
-    const key = `${docId}-${pageNum}`;
+    if (state.tool === "draw") {
+      currentPath.push({ x: pos.x, y: pos.y });
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    } else if (state.tool === "erase") {
+      eraseAt(pos.x, pos.y, canvas.width, canvas.height, key);
+    }
+  };
+
+  const end = (e) => {
+    if (!isDrawing) return;
+    isDrawing = false;
+
+    if (state.tool === "draw") {
+      ctx.closePath();
+
+      // Only save if path has points
+      if (currentPath.length > 0) {
+        const before = JSON.parse(JSON.stringify(state.drawings[key] || []));
+
+        if (!state.drawings[key]) state.drawings[key] = [];
+
+        const w = canvas.width;
+        const h = canvas.height;
+        const normalizedPath = currentPath.map((p) => ({
+          x: p.x / w,
+          y: p.y / h,
+        }));
+
+        state.drawings[key].push({
+          points: normalizedPath,
+          color: state.color || "#ef4444",
+        });
+        saveState();
+
+        const after = JSON.parse(JSON.stringify(state.drawings[key]));
+        recordHistory(key, before, after);
+      }
+      currentPath = [];
+    } else if (state.tool === "erase") {
+      if (beforeEraseState) {
+        const after = JSON.parse(JSON.stringify(state.drawings[key] || []));
+        if (JSON.stringify(beforeEraseState) !== JSON.stringify(after)) {
+          recordHistory(key, beforeEraseState, after);
+        }
+        beforeEraseState = null;
+      }
+    }
+  };
+
+  const eraseAt = (x, y, w, h, key) => {
     const items = state.drawings[key];
     if (!items) return;
 
-    const ctx = canvas.getContext('2d');
-    const w = canvas.width;
-    const h = canvas.height;
+    const threshold = 10; // pixels
 
-    ctx.lineWidth = 2;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
+    const initialLen = items.length;
+    state.drawings[key] = items.filter((item) => {
+      if (item.type === "text") {
+        const tx = item.x * w;
+        const ty = item.y * h;
+        const fontSize = item.size * h;
+        ctx.font = `${fontSize}px Arial`;
+        const textWidth = ctx.measureText(item.text.split("\n")[0]).width; // simplified width check
 
-    items.forEach(item => {
-        if (item.type === 'text') {
-            const fontSize = item.size * h;
-            ctx.font = `${fontSize}px Arial`;
-            ctx.fillStyle = item.color || '#000000';
-            ctx.textBaseline = 'top';
-            const lines = item.text.split('\n');
-            lines.forEach((line, index) => {
-                ctx.fillText(line, item.x * w, item.y * h + (index * fontSize * 1.2));
-            });
-            // no restore needed for strokeStyle as we set fillStyle, but if we change unexpected context props, we should be careful.
-        } else {
-            const points = item.points || (item.length ? item : null);
-            if(!points || points.length < 1) return;
-            ctx.strokeStyle = item.color || '#ef4444';
-            ctx.beginPath();
-            ctx.moveTo(points[0].x * w, points[0].y * h);
-            for(let i=1; i<points.length; i++) {
-                ctx.lineTo(points[i].x * w, points[i].y * h);
-            }
-            ctx.stroke();
-        }
+        // Expand hit box slightly
+        return !(
+          x >= tx - 10 &&
+          x <= tx + textWidth + 10 &&
+          y >= ty - 10 &&
+          y <= ty + fontSize * item.text.split("\n").length + 10
+        );
+      } else {
+        return !item.points.some((p, idx, arr) => {
+          if (idx === 0) return false;
+          const p1 = { x: arr[idx - 1].x * w, y: arr[idx - 1].y * h };
+          const p2 = { x: p.x * w, y: p.y * h };
+          return distToSegment({ x, y }, p1, p2) < threshold;
+        });
+      }
     });
+
+    if (state.drawings[key].length !== initialLen) {
+      ctx.clearRect(0, 0, w, h);
+      redrawCanvas(canvas, docId, pageNum); // Reuse redraw
+      saveState();
+    }
+  };
+
+  function distToSegment(p, v, w) {
+    function sqr(x) {
+      return x * x;
+    }
+    function dist2(v, w) {
+      return sqr(v.x - w.x) + sqr(v.y - w.y);
+    }
+    var l2 = dist2(v, w);
+    if (l2 == 0) return Math.sqrt(dist2(p, v));
+    var t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.sqrt(
+      dist2(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) }),
+    );
+  }
+
+  canvas.addEventListener("mousedown", start);
+  canvas.addEventListener("mousemove", move);
+  canvas.addEventListener("mouseup", end);
+  canvas.addEventListener("mouseout", end);
+  // Touch support
+  canvas.addEventListener("touchstart", start);
+  canvas.addEventListener("touchmove", move);
+  canvas.addEventListener("touchend", end);
+}
+
+function redrawCanvas(canvas, docId, pageNum) {
+  const key = `${docId}-${pageNum}`;
+  const items = state.drawings[key];
+  if (!items) return;
+
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  items.forEach((item) => {
+    if (item.type === "text") {
+      const fontSize = item.size * h;
+      ctx.font = `${fontSize}px Arial`;
+      ctx.fillStyle = item.color || "#000000";
+      ctx.textBaseline = "top";
+      const lines = item.text.split("\n");
+      lines.forEach((line, index) => {
+        ctx.fillText(line, item.x * w, item.y * h + index * fontSize * 1.2);
+      });
+      // no restore needed for strokeStyle as we set fillStyle, but if we change unexpected context props, we should be careful.
+    } else {
+      const points = item.points || (item.length ? item : null);
+      if (!points || points.length < 1) return;
+      ctx.strokeStyle = item.color || "#ef4444";
+      ctx.beginPath();
+      ctx.moveTo(points[0].x * w, points[0].y * h);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x * w, points[i].y * h);
+      }
+      ctx.stroke();
+    }
+  });
 }
 
 function clearCurrentPageDraw() {
-    if (!state.currentDocId) return;
-    // Find visible page? or just clear the first one?
-    // Let's implement a "click button, then click page to clear" or just clear all on current doc?
-    // Simpler: Ask user.
-    if(confirm("Clear drawings on ALL pages of this document?")) {
-        // Remove keys starting with currentDocId
-            Object.keys(state.drawings).forEach(k => {
-                if(k.startsWith(state.currentDocId)) delete state.drawings[k];
-            });
-            saveState();
-            renderViewer(state.currentDocId);
-    }
+  if (!state.currentDocId) return;
+  // Find visible page? or just clear the first one?
+  // Let's implement a "click button, then click page to clear" or just clear all on current doc?
+  // Simpler: Ask user.
+  if (confirm("Clear drawings on ALL pages of this document?")) {
+    // Remove keys starting with currentDocId
+    Object.keys(state.drawings).forEach((k) => {
+      if (k.startsWith(state.currentDocId)) delete state.drawings[k];
+    });
+    saveState();
+    renderViewer(state.currentDocId);
+  }
 }
 
 // --- Export Logic (The Heavy Lifting) ---
 
 async function exportPDF() {
-    const btn = document.getElementById('download-btn');
-    btn.disabled = true;
-    btn.innerText = "Generating...";
-    showLoader("Stitching and burning drawings...");
+  const btn = document.getElementById("download-btn");
+  btn.disabled = true;
+  btn.innerText = "Generating...";
+  showLoader("Stitching and burning drawings...");
 
-    try {
-        const mergedPdf = await PDFLib.PDFDocument.create();
+  try {
+    const mergedPdf = await PDFLib.PDFDocument.create();
 
-        for (const item of state.selectedPages) {
-            // 1. Load Source
-            const srcBytes = pdfFiles[item.docId];
-            const srcDoc = await PDFLib.PDFDocument.load(srcBytes);
+    for (const item of state.selectedPages) {
+      // 1. Load Source
+      const srcBytes = pdfFiles[item.docId];
+      const srcDoc = await PDFLib.PDFDocument.load(srcBytes);
 
-            // 2. Copy Page
-            const [copiedPage] = await mergedPdf.copyPages(srcDoc, [item.pageNum - 1]);
-            const embeddedPage = mergedPdf.addPage(copiedPage);
+      // 2. Copy Page
+      const [copiedPage] = await mergedPdf.copyPages(srcDoc, [
+        item.pageNum - 1,
+      ]);
+      const embeddedPage = mergedPdf.addPage(copiedPage);
 
-            // 3. Handle Drawings
-            const drawKey = `${item.docId}-${item.pageNum}`;
-            if (state.drawings[drawKey] && state.drawings[drawKey].length > 0) {
-                // To burn drawings, we need to generate a transparent PNG of the drawing
-                // We can use a temporary canvas for this
-                const { width, height } = embeddedPage.getSize();
+      // 3. Handle Drawings
+      const drawKey = `${item.docId}-${item.pageNum}`;
+      if (state.drawings[drawKey] && state.drawings[drawKey].length > 0) {
+        // To burn drawings, we need to generate a transparent PNG of the drawing
+        // We can use a temporary canvas for this
+        const { width, height } = embeddedPage.getSize();
 
-                const tempCanvas = document.createElement('canvas');
-                // Render high res for quality
-                const scale = 2;
-                tempCanvas.width = width * scale;
-                tempCanvas.height = height * scale;
-                const ctx = tempCanvas.getContext('2d');
-                ctx.scale(scale, scale);
+        const tempCanvas = document.createElement("canvas");
+        // Render high res for quality
+        const scale = 2;
+        tempCanvas.width = width * scale;
+        tempCanvas.height = height * scale;
+        const ctx = tempCanvas.getContext("2d");
+        ctx.scale(scale, scale);
 
-                // Draw paths
-                ctx.lineWidth = 2;
-                ctx.lineJoin = 'round';
-                ctx.lineCap = 'round';
+        // Draw paths
+        ctx.lineWidth = 2;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
 
-                state.drawings[drawKey].forEach(pathData => {
-                        if (pathData.type === 'text') {
-                             const fontSize = pathData.size * height;
-                             ctx.font = `${fontSize}px Arial`;
-                             ctx.fillStyle = pathData.color || '#000000';
-                             ctx.textBaseline = 'top';
-                             const lines = pathData.text.split('\n');
-                             lines.forEach((line, index) => {
-                                 ctx.fillText(line, pathData.x * width, pathData.y * height + (index * fontSize * 1.2));
-                             });
-                        } else {
-                            const points = pathData.points;
-                            if(!points || points.length < 1) return;
-                            ctx.strokeStyle = pathData.color || '#ef4444';
-                            ctx.beginPath();
-                            ctx.moveTo(points[0].x * width, points[0].y * height);
-                            for(let i=1; i<points.length; i++) {
-                                ctx.lineTo(points[i].x * width, points[i].y * height);
-                            }
-                            ctx.stroke();
-                        }
-                });
-
-                // Convert to PNG blob
-                const pngUrl = tempCanvas.toDataURL('image/png');
-                const pngImageBytes = await fetch(pngUrl).then(res => res.arrayBuffer());
-                const embeddedImage = await mergedPdf.embedPng(pngImageBytes);
-
-                // Draw image on top of page
-                embeddedPage.drawImage(embeddedImage, {
-                    x: 0,
-                    y: 0,
-                    width: width,
-                    height: height,
-                });
+        state.drawings[drawKey].forEach((pathData) => {
+          if (pathData.type === "text") {
+            const fontSize = pathData.size * height;
+            ctx.font = `${fontSize}px Arial`;
+            ctx.fillStyle = pathData.color || "#000000";
+            ctx.textBaseline = "top";
+            const lines = pathData.text.split("\n");
+            lines.forEach((line, index) => {
+              ctx.fillText(
+                line,
+                pathData.x * width,
+                pathData.y * height + index * fontSize * 1.2,
+              );
+            });
+          } else {
+            const points = pathData.points;
+            if (!points || points.length < 1) return;
+            ctx.strokeStyle = pathData.color || "#ef4444";
+            ctx.beginPath();
+            ctx.moveTo(points[0].x * width, points[0].y * height);
+            for (let i = 1; i < points.length; i++) {
+              ctx.lineTo(points[i].x * width, points[i].y * height);
             }
-        }
+            ctx.stroke();
+          }
+        });
 
-        const pdfBytes = await mergedPdf.save();
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = "stitched_pro.pdf";
-        a.click();
+        // Convert to PNG blob
+        const pngUrl = tempCanvas.toDataURL("image/png");
+        const pngImageBytes = await fetch(pngUrl).then((res) =>
+          res.arrayBuffer(),
+        );
+        const embeddedImage = await mergedPdf.embedPng(pngImageBytes);
 
-    } catch (e) {
-        console.error(e);
-        alert("Export failed: " + e.message);
-    } finally {
-        hideLoader();
-        btn.disabled = false;
-        btn.innerText = "Download Merged PDF";
+        // Draw image on top of page
+        embeddedPage.drawImage(embeddedImage, {
+          x: 0,
+          y: 0,
+          width: width,
+          height: height,
+        });
+      }
     }
+
+    const pdfBytes = await mergedPdf.save();
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "stitched_pro.pdf";
+    a.click();
+  } catch (e) {
+    console.error(e);
+    alert("Export failed: " + e.message);
+  } finally {
+    hideLoader();
+    btn.disabled = false;
+    btn.innerText = "Download Merged PDF";
+  }
 }
 
 function showLoader(text) {
-    document.getElementById('loader').style.display = 'flex';
-    document.getElementById('loader-text').innerText = text;
+  document.getElementById("loader").style.display = "flex";
+  document.getElementById("loader-text").innerText = text;
 }
 function hideLoader() {
-    document.getElementById('loader').style.display = 'none';
+  document.getElementById("loader").style.display = "none";
 }
 
 // --- Layout & Sidebar ---
 
 function toggleSidebar(forceState) {
-    const sidebar = document.getElementById('sidebar');
-    const resizer = document.getElementById('resizer');
-    const toggleBtn = document.getElementById('sidebar-toggle-btn');
+  const sidebar = document.getElementById("sidebar");
+  const resizer = document.getElementById("resizer");
+  const toggleBtn = document.getElementById("sidebar-toggle-btn");
 
-    // If forceState is provided, use it, otherwise toggle
-    const newState = forceState !== undefined ? forceState : !state.isSidebarOpen;
-    state.isSidebarOpen = newState;
+  // If forceState is provided, use it, otherwise toggle
+  const newState = forceState !== undefined ? forceState : !state.isSidebarOpen;
+  state.isSidebarOpen = newState;
 
-    if (newState) {
-        sidebar.style.display = 'flex';
-        resizer.style.display = 'block';
-        toggleBtn.style.display = 'none';
-    } else {
-        sidebar.style.display = 'none';
-        resizer.style.display = 'none';
-        toggleBtn.style.display = 'block';
-    }
+  if (newState) {
+    sidebar.style.display = "flex";
+    resizer.style.display = "block";
+    toggleBtn.style.display = "none";
+  } else {
+    sidebar.style.display = "none";
+    resizer.style.display = "none";
+    toggleBtn.style.display = "block";
+  }
 
-    // Only save if it's a user interaction (not init call)
-    if (forceState === undefined) saveState();
+  // Only save if it's a user interaction (not init call)
+  if (forceState === undefined) saveState();
 }
 
 // Resizer Logic
 (function setupResizer() {
-    const resizer = document.getElementById('resizer');
-    const sidebar = document.getElementById('sidebar');
-    let isResizing = false;
+  const resizer = document.getElementById("resizer");
+  const sidebar = document.getElementById("sidebar");
+  let isResizing = false;
 
-    resizer.addEventListener('mousedown', (e) => {
-        isResizing = true;
-        document.body.style.cursor = 'col-resize';
-        resizer.classList.add('resizing');
-    });
+  resizer.addEventListener("mousedown", (e) => {
+    isResizing = true;
+    document.body.style.cursor = "col-resize";
+    resizer.classList.add("resizing");
+  });
 
-    document.addEventListener('mousemove', (e) => {
-        if (!isResizing) return;
+  document.addEventListener("mousemove", (e) => {
+    if (!isResizing) return;
 
-        // Calculate width from the right edge of viewport
-        const newWidth = window.innerWidth - e.clientX;
+    // Calculate width from the right edge of viewport
+    const newWidth = window.innerWidth - e.clientX;
 
-        // Limits are handled by CSS min/max-width but we should clamp here too to avoid glitches
-        if (newWidth > 200 && newWidth < 800) {
-            sidebar.style.width = newWidth + 'px';
-            state.sidebarWidth = newWidth;
-        }
-    });
+    // Limits are handled by CSS min/max-width but we should clamp here too to avoid glitches
+    if (newWidth > 200 && newWidth < 800) {
+      sidebar.style.width = newWidth + "px";
+      state.sidebarWidth = newWidth;
+    }
+  });
 
-    document.addEventListener('mouseup', () => {
-        if (isResizing) {
-            isResizing = false;
-            document.body.style.cursor = '';
-            resizer.classList.remove('resizing');
-            saveState();
-        }
-    });
+  document.addEventListener("mouseup", () => {
+    if (isResizing) {
+      isResizing = false;
+      document.body.style.cursor = "";
+      resizer.classList.remove("resizing");
+      saveState();
+    }
+  });
 })();
-
 
 // Start
 init();

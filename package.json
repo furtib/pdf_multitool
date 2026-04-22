@@ -1,0 +1,16 @@
+{
+  "name": "pdf-multitool",
+  "version": "1.0.0",
+  "description": "A browser-based PDF multitool",
+  "main": "script.js",
+  "scripts": {
+    "test": "playwright test",
+    "lint": "prettier --check .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "http-server": "^14.1.1",
+    "prettier": "^3.8.3"
+  }
+}
