@@ -1,6 +1,6 @@
 # pdf-multitool
 
-![Tests](https://github.com/Tibi/pdf_multitool/actions/workflows/playwright.yml/badge.svg)
+![Tests](https://github.com/furtib/pdf_multitool/actions/workflows/tests.yml/badge.svg)
 
 A browser-based PDF multitool to select pages from separate PDF files and concatenate them into a single file.
 
