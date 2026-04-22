@@ -12,7 +12,7 @@
     "@playwright/test": "^1.44.0",
     "localforage": "^1.10.0",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^3.11.174",
+    "pdfjs-dist": "^4.10.38",
     "serve": "^14.2.3",
     "sortablejs": "^1.15.0"
   }
