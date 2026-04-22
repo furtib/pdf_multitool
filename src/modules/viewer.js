@@ -2,6 +2,9 @@ import { state, pdfJsDocs, pdfFiles, saveState } from './state.js';
 import { togglePageSelection } from './selection.js';
 import { setupDrawingEvents } from './drawing.js';
 
+// Cache empty state HTML once on load, since it might be cleared from DOM
+const emptyStateTemplate = document.getElementById("empty-state")?.outerHTML || "";
+
 export function changeZoom(delta) {
   state.zoom = Math.max(0.5, Math.min(3.0, state.zoom + delta));
   const zoomLevel = document.getElementById("zoom-level");
@@ -17,11 +20,10 @@ export async function renderViewer(docId) {
   container.innerHTML = "";
 
   if (!docId || !pdfJsDocs[docId]) {
-    const emptyState = document.getElementById("empty-state");
-    if (emptyState) {
-      container.innerHTML = emptyState.outerHTML;
-      const newEmptyState = container.querySelector("#empty-state");
-      if (newEmptyState) newEmptyState.style.display = "block";
+    if (emptyStateTemplate) {
+      container.innerHTML = emptyStateTemplate;
+      const el = container.querySelector("#empty-state");
+      if (el) el.style.display = "block";
     }
     return;
   }
