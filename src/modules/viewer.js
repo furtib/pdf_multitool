@@ -30,14 +30,24 @@ export async function renderViewer(docId) {
 
   const pdfDoc = pdfJsDocs[docId];
   const docMeta = state.docs.find((d) => d.id === docId);
+  const totalPageCount = pdfDoc.numPages + (docMeta.blankPageCount || 0);
 
-  for (let i = 1; i <= pdfDoc.numPages; i++) {
+  for (let i = 1; i <= totalPageCount; i++) {
     const wrapper = document.createElement("div");
     wrapper.className = `page-wrapper ${state.tool === "draw" ? "draw-mode" : state.tool === "erase" ? "erase-mode" : state.tool === "text" ? "text-mode" : ""}`;
     wrapper.dataset.pageNum = i;
 
-    const page = await pdfDoc.getPage(i);
-    const viewport = page.getViewport({ scale: state.zoom });
+    let viewport;
+    let page = null;
+    
+    if (i <= pdfDoc.numPages) {
+      page = await pdfDoc.getPage(i);
+      viewport = page.getViewport({ scale: state.zoom });
+    } else {
+      // Blank page - match size of page 1
+      const page1 = await pdfDoc.getPage(1);
+      viewport = page1.getViewport({ scale: state.zoom });
+    }
 
     wrapper.style.width = `${viewport.width}px`;
     wrapper.style.height = `${viewport.height}px`;
@@ -66,7 +76,7 @@ export async function renderViewer(docId) {
       drawCanvas,
       docId,
       i,
-      viewport.width / page.getViewport({ scale: 1 }).width
+      viewport.width / (i <= pdfDoc.numPages ? page.getViewport({ scale: 1 }).width : (await pdfDoc.getPage(1)).getViewport({ scale: 1 }).width)
     );
 
     const meta = document.createElement("div");
@@ -92,17 +102,22 @@ export async function renderViewer(docId) {
     wrapper.appendChild(controls);
     container.appendChild(wrapper);
 
-    page.render({ canvasContext: ctx, viewport }).promise.then(() => {
-      page.getTextContent().then((textContent) => {
-        pdfjsLib.renderTextLayer({
-          textContentSource: textContent,
-          container: textLayerDiv,
-          viewport: viewport,
-          textDivs: [],
+    if (page) {
+      page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+        page.getTextContent().then((textContent) => {
+          pdfjsLib.renderTextLayer({
+            textContentSource: textContent,
+            container: textLayerDiv,
+            viewport: viewport,
+            textDivs: [],
+          });
         });
+        redrawCanvas(drawCanvas, docId, i);
       });
+    } else {
+      // Virtual page - just redraw existing annotations if any
       redrawCanvas(drawCanvas, docId, i);
-    });
+    }
   }
 }
 

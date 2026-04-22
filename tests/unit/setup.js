@@ -30,7 +30,11 @@ globalThis.PDFLib = {
       save: vi.fn(() => new Uint8Array()),
       embedPng: vi.fn(),
     })),
-    load: vi.fn(),
+    load: vi.fn(() => Promise.resolve({
+      getPage: vi.fn(() => ({
+        getSize: vi.fn(() => ({ width: 100, height: 100 })),
+      })),
+    })),
   },
 };
 globalThis.localforage = {

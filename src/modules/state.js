@@ -50,3 +50,17 @@ export async function saveState() {
     setTimeout(() => (statusText.innerText = ""), 1000);
   }
 }
+
+export async function addBlankPage(docId) {
+  const doc = state.docs.find(d => d.id === docId);
+  if (!doc) return;
+  
+  if (!doc.blankPageCount) doc.blankPageCount = 0;
+  doc.blankPageCount++;
+  
+  await saveState();
+  
+  // Re-render viewer
+  const { renderViewer } = await import('./viewer.js');
+  renderViewer(docId);
+}

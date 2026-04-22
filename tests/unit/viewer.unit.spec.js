@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { state, resetAppState } from '../../src/modules/state.js';
-import { changeZoom, redrawCanvas, renderTabs, closeDoc, handleScroll } from '../../src/modules/viewer.js';
+import { changeZoom, redrawCanvas, renderTabs, closeDoc, handleScroll, renderViewer } from '../../src/modules/viewer.js';
+import { pdfJsDocs } from '../../src/modules/state.js';
 
 describe('Viewer Logic', () => {
   beforeEach(() => {
@@ -69,5 +70,26 @@ describe('Viewer Logic', () => {
     
     handleScroll();
     expect(state.scrollTop).toBe(500);
+  });
+
+  it('should render blank pages in renderViewer', async () => {
+    const docId = 'doc1';
+    state.docs = [{ id: docId, name: 'Test', pageCount: 1, blankPageCount: 1 }];
+    
+    const mockPage = {
+      getViewport: vi.fn(() => ({ width: 100, height: 100 })),
+      render: vi.fn(() => ({ promise: Promise.resolve() })),
+      getTextContent: vi.fn(() => Promise.resolve({ items: [] })),
+    };
+    pdfJsDocs[docId] = {
+      numPages: 1,
+      getPage: vi.fn(() => Promise.resolve(mockPage)),
+    };
+    
+    await renderViewer(docId);
+    
+    const wrappers = document.querySelectorAll('.page-wrapper');
+    expect(wrappers.length).toBe(2); // 1 native + 1 blank
+    expect(wrappers[1].dataset.pageNum).toBe('2');
   });
 });

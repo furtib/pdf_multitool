@@ -1,5 +1,5 @@
 // Main Entry Point
-import { state, pdfFiles, pdfJsDocs, STATE_KEY, FILES_KEY, saveState } from './modules/state.js';
+import { state, pdfFiles, pdfJsDocs, STATE_KEY, FILES_KEY, saveState, addBlankPage } from './modules/state.js';
 import { undo, redo, setRedrawFunction } from './modules/undo.js';
 import { showHelp, hideHelp, showLoader, hideLoader } from './modules/utils.js';
 import { renderTabs, renderViewer, redrawCanvas, changeZoom, handleScroll, closeDoc } from './modules/viewer.js';
@@ -149,6 +149,7 @@ if (viewerContainer) {
 }
 
 // Exposed to global scope for HTML onclick handlers
+window.state = state;
 window.changeZoom = changeZoom;
 window.undo = undo;
 window.redo = redo;
@@ -162,6 +163,7 @@ window.toggleSidebar = toggleSidebar;
 window.exportPDF = exportPDF;
 window.closeDoc = closeDoc;
 window.removePage = removePage;
+window.addBlankPage = addBlankPage;
 
 // Start the app
 setupFileHandling();

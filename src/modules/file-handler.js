@@ -29,6 +29,7 @@ export function setupFileHandling() {
           id: id,
           name: file.name,
           pageCount: pdfDoc.numPages,
+          blankPageCount: 0,
         });
       } catch (err) {
         console.error("Error loading PDF", file.name, err);

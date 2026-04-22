@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { state, resetAppState, saveState } from '../../src/modules/state.js';
+import { state, resetAppState, saveState, addBlankPage } from '../../src/modules/state.js';
 
 describe('State Management', () => {
   beforeEach(() => {
@@ -27,5 +27,11 @@ describe('State Management', () => {
     
     expect(globalThis.localforage.setItem).toHaveBeenCalledWith(expect.any(String), state);
     expect(statusText.innerText).toBe("Saved");
+  });
+
+  it('should increment blankPageCount on addBlankPage', async () => {
+    state.docs.push({ id: 'doc1', blankPageCount: 0 });
+    await addBlankPage('doc1');
+    expect(state.docs[0].blankPageCount).toBe(1);
   });
 });

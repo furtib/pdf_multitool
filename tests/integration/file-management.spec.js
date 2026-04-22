@@ -48,4 +48,24 @@ test.describe("File Management", () => {
     await page.locator(".doc-tab.active .close-tab").click();
     await expect(page.locator("#empty-state")).toBeVisible();
   });
+
+  test("should add a blank page to the current document", async ({ page }) => {
+    await uploadPdf(page, "test-doc1.pdf");
+    
+    // Initially 2 pages
+    await expect(page.locator(".page-wrapper")).toHaveCount(2);
+    
+    // Click + Blank Page
+    await page.click("text=+ Blank Page");
+    
+    // Should now have 3 pages
+    await expect(page.locator(".page-wrapper")).toHaveCount(3);
+    await expect(page.locator(".page-meta").last()).toContainText("3");
+    
+    // Add the blank page to basket
+    await page.locator(".add-btn").last().click();
+    await expect(page.locator("#queue-count")).toContainText("1 Pages");
+    await expect(page.locator(".basket-item")).toHaveCount(1);
+    await expect(page.locator(".basket-item")).toContainText("Page 3");
+  });
 });

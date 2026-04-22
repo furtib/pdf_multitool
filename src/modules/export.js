@@ -13,13 +13,25 @@ export async function exportPDF() {
     const mergedPdf = await PDFLib.PDFDocument.create();
 
     for (const item of state.selectedPages) {
+      const docMeta = state.docs.find(d => d.id === item.docId);
+      const nativePageCount = docMeta ? docMeta.pageCount : 0;
+      
       const srcBytes = pdfFiles[item.docId];
       const srcDoc = await PDFLib.PDFDocument.load(srcBytes);
+      
+      let embeddedPage;
 
-      const [copiedPage] = await mergedPdf.copyPages(srcDoc, [
-        item.pageNum - 1,
-      ]);
-      const embeddedPage = mergedPdf.addPage(copiedPage);
+      if (item.pageNum <= nativePageCount) {
+        const [copiedPage] = await mergedPdf.copyPages(srcDoc, [
+          item.pageNum - 1,
+        ]);
+        embeddedPage = mergedPdf.addPage(copiedPage);
+      } else {
+        // Blank page - match size of page 1 of source doc
+        const firstPage = srcDoc.getPage(0);
+        const { width, height } = firstPage.getSize();
+        embeddedPage = mergedPdf.addPage([width, height]);
+      }
 
       const drawKey = `${item.docId}-${item.pageNum}`;
       if (state.drawings[drawKey] && state.drawings[drawKey].length > 0) {
