@@ -1,6 +1,6 @@
 # pdf-multitool
 
-![Playwright Tests](https://github.com/Tibi/pdf_multitool/actions/workflows/playwright.yml/badge.svg)
+![Tests](https://github.com/Tibi/pdf_multitool/actions/workflows/playwright.yml/badge.svg)
 
 A browser-based PDF multitool to select pages from separate PDF files and concatenate them into a single file.
 
@@ -10,7 +10,27 @@ I just needed this tool, and needed it fast
 
 ## Testing
 
-This project uses [Playwright](https://playwright.dev/) for end-to-end testing.
+This project uses both unit tests and end-to-end tests to ensure reliability.
+
+### Unit Tests
+
+We use [Vitest](https://vitest.dev/) for fast unit testing of core logic (math utilities, undo/redo, state management).
+
+To run unit tests:
+
+```bash
+npm run test:unit
+```
+
+### End-to-End Tests
+
+We use [Playwright](https://playwright.dev/) for verifying user workflows in the browser.
+
+To run end-to-end tests:
+
+```bash
+npm test
+```
 
 ### Prerequisites
 
@@ -20,13 +40,3 @@ Ensure you have dependencies and browsers installed:
 npm install
 npx playwright install
 ```
-
-### Running Tests
-
-To run the tests, use the following command:
-
-```bash
-npm test
-```
-
-This will start a local server and run the test suite in headless mode.

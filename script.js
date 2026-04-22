@@ -30,7 +30,7 @@ let redoStack = [];
 
 function recordHistory(key, before, after) {
   undoStack.push({ key, before, after });
-  redoStack = []; // Clear redo on new action
+  redoStack.length = 0; // Clear redo on new action
   updateUndoRedoButtons();
 }
 
@@ -710,7 +710,7 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
       ctx.moveTo(pos.x, pos.y);
     } else if (state.tool === "erase") {
       beforeEraseState = JSON.parse(JSON.stringify(state.drawings[key] || []));
-      eraseAt(pos.x, pos.y, canvas.width, canvas.height, key);
+      eraseAt(pos.x, pos.y, canvas.width, canvas.height, key, canvas, docId, pageNum);
     } else if (state.tool === "text") {
       addTextAt(pos.x, pos.y);
       isDrawing = false;
@@ -727,7 +727,7 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
       ctx.lineTo(pos.x, pos.y);
       ctx.stroke();
     } else if (state.tool === "erase") {
-      eraseAt(pos.x, pos.y, canvas.width, canvas.height, key);
+      eraseAt(pos.x, pos.y, canvas.width, canvas.height, key, canvas, docId, pageNum);
     }
   };
 
@@ -772,61 +772,6 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
     }
   };
 
-  const eraseAt = (x, y, w, h, key) => {
-    const items = state.drawings[key];
-    if (!items) return;
-
-    const threshold = 10; // pixels
-
-    const initialLen = items.length;
-    state.drawings[key] = items.filter((item) => {
-      if (item.type === "text") {
-        const tx = item.x * w;
-        const ty = item.y * h;
-        const fontSize = item.size * h;
-        ctx.font = `${fontSize}px Arial`;
-        const textWidth = ctx.measureText(item.text.split("\n")[0]).width; // simplified width check
-
-        // Expand hit box slightly
-        return !(
-          x >= tx - 10 &&
-          x <= tx + textWidth + 10 &&
-          y >= ty - 10 &&
-          y <= ty + fontSize * item.text.split("\n").length + 10
-        );
-      } else {
-        return !item.points.some((p, idx, arr) => {
-          if (idx === 0) return false;
-          const p1 = { x: arr[idx - 1].x * w, y: arr[idx - 1].y * h };
-          const p2 = { x: p.x * w, y: p.y * h };
-          return distToSegment({ x, y }, p1, p2) < threshold;
-        });
-      }
-    });
-
-    if (state.drawings[key].length !== initialLen) {
-      ctx.clearRect(0, 0, w, h);
-      redrawCanvas(canvas, docId, pageNum); // Reuse redraw
-      saveState();
-    }
-  };
-
-  function distToSegment(p, v, w) {
-    function sqr(x) {
-      return x * x;
-    }
-    function dist2(v, w) {
-      return sqr(v.x - w.x) + sqr(v.y - w.y);
-    }
-    var l2 = dist2(v, w);
-    if (l2 == 0) return Math.sqrt(dist2(p, v));
-    var t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-    t = Math.max(0, Math.min(1, t));
-    return Math.sqrt(
-      dist2(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) }),
-    );
-  }
-
   canvas.addEventListener("mousedown", start);
   canvas.addEventListener("mousemove", move);
   canvas.addEventListener("mouseup", end);
@@ -835,6 +780,62 @@ function setupDrawingEvents(canvas, docId, pageNum, scaleFactor) {
   canvas.addEventListener("touchstart", start);
   canvas.addEventListener("touchmove", move);
   canvas.addEventListener("touchend", end);
+}
+
+const eraseAt = (x, y, w, h, key, canvas, docId, pageNum) => {
+  const items = state.drawings[key];
+  if (!items) return;
+
+  const threshold = 10; // pixels
+  const ctx = canvas.getContext("2d");
+
+  const initialLen = items.length;
+  state.drawings[key] = items.filter((item) => {
+    if (item.type === "text") {
+      const tx = item.x * w;
+      const ty = item.y * h;
+      const fontSize = item.size * h;
+      ctx.font = `${fontSize}px Arial`;
+      const textWidth = ctx.measureText(item.text.split("\n")[0]).width; // simplified width check
+
+      // Expand hit box slightly
+      return !(
+        x >= tx - 10 &&
+        x <= tx + textWidth + 10 &&
+        y >= ty - 10 &&
+        y <= ty + fontSize * item.text.split("\n").length + 10
+      );
+    } else {
+      return !item.points.some((p, idx, arr) => {
+        if (idx === 0) return false;
+        const p1 = { x: arr[idx - 1].x * w, y: arr[idx - 1].y * h };
+        const p2 = { x: p.x * w, y: p.y * h };
+        return distToSegment({ x, y }, p1, p2) < threshold;
+      });
+    }
+  });
+
+  if (state.drawings[key].length !== initialLen) {
+    ctx.clearRect(0, 0, w, h);
+    redrawCanvas(canvas, docId, pageNum); // Reuse redraw
+    saveState();
+  }
+};
+
+function distToSegment(p, v, w) {
+  function sqr(x) {
+    return x * x;
+  }
+  function dist2(v, w) {
+    return sqr(v.x - w.x) + sqr(v.y - w.y);
+  }
+  var l2 = dist2(v, w);
+  if (l2 == 0) return Math.sqrt(dist2(p, v));
+  var t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.sqrt(
+    dist2(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) }),
+  );
 }
 
 function redrawCanvas(canvas, docId, pageNum) {
@@ -1061,4 +1062,49 @@ function toggleSidebar(forceState) {
 })();
 
 // Start
-init();
+if (typeof module === "undefined") {
+  init();
+}
+
+// --- Testing Exports ---
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    state,
+    pdfFiles,
+    pdfJsDocs,
+    undoStack,
+    redoStack,
+    recordHistory,
+    undo,
+    redo,
+    togglePageSelection,
+    removePage,
+    setTool,
+    setColor,
+    setFontSize,
+    distToSegment,
+    eraseAt,
+    redrawCanvas,
+    resetAppState: () => {
+      // Helper for tests to reset state to defaults
+      for (let key in state) delete state[key];
+      Object.assign(state, {
+        docs: [],
+        selectedPages: [],
+        drawings: {},
+        currentDocId: null,
+        zoom: 1.0,
+        tool: null,
+        color: "#ef4444",
+        fontSize: 16,
+        scrollTop: 0,
+        sidebarWidth: 320,
+        isSidebarOpen: true,
+      });
+      undoStack.length = 0;
+      redoStack.length = 0;
+      for (let key in pdfFiles) delete pdfFiles[key];
+      for (let key in pdfJsDocs) delete pdfJsDocs[key];
+    },
+  };
+}
