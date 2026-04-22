@@ -2,7 +2,7 @@
   "name": "pdf-multitool",
   "version": "1.0.0",
   "description": "A browser-based PDF multitool",
-  "main": "script.js",
+  "main": "src/main.js",
   "scripts": {
     "test": "playwright test",
     "lint": "prettier --check .",

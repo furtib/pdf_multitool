@@ -4,9 +4,28 @@
 
 A browser-based PDF multitool to select pages from separate PDF files and concatenate them into a single file.
 
-# This project started as a vibecoded mess
+## Features
 
-I just needed this tool, and needed it fast
+- **Merge PDFs:** Open multiple PDF files and select individual pages to combine.
+- **Annotate:** Draw, add text, and erase annotations directly on PDF pages.
+- **Reorder:** Drag and drop to reorder files and selected pages.
+- **Persistent State:** Automatic session saving using IndexedDB (localforage).
+
+## Project Structure
+
+The project has been refactored into a modern, modular architecture:
+
+- `src/main.js`: Application entry point and initialization.
+- `src/modules/`:
+  - `state.js`: Global state management and persistence.
+  - `drawing.js`: Annotation tools and canvas logic.
+  - `viewer.js`: PDF rendering and viewer interactions.
+  - `selection.js`: Page selection queue management.
+  - `undo.js`: Undo/redo history system.
+  - `export.js`: PDF generation and merging.
+  - `file-handler.js`: File input processing.
+  - `ui.js`: Layout and sidebar interactions.
+  - `utils.js`: Shared UI helpers.
 
 ## Testing
 
